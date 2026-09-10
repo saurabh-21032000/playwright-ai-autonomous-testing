@@ -1,0 +1,49 @@
+name: AI Healing Smoke
+
+# Manual trigger ONLY. This workflow spends real Anthropic credits - it must
+# never run automatically on push or pull_request, and never on
+# pull_request_target (which would expose secrets to untrusted PR code).
+on:
+  workflow_dispatch:
+
+jobs:
+  ai-healing-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      SELF_HEALING_AI_ENABLED: 'true'
+      RUN_LIVE_AI_SMOKE: 'true'
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+      BASE_URL: 'https://www.saucedemo.com'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium (only browser this project uses)
+        run: npx playwright install --with-deps chromium
+
+      # Validation only: this test never edits source, commits a locator, or
+      # opens a PR. It exercises the real Claude request -> schema validation
+      # -> Playwright validation path and simply passes or fails.
+      - name: Run live AI healing smoke test
+        run: npx playwright test tests/ai-healing-live.spec.js
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-healing-smoke-report
+          path: playwright-report/
+          retention-days: 14
