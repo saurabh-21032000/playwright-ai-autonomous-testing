@@ -11,6 +11,7 @@
 // evidenceCollector.collectHealingEvidence on the shared, cached module instance
 // without needing a dependency-injection framework.
 const evidenceCollector = require('./healing-evidence-collector');
+const aiHealer = require('./ai-locator-healer');
 
 const DEFAULT_STRATEGY_TIMEOUT_MS = 1000;
 const POLL_INTERVAL_MS = 100;
@@ -23,13 +24,16 @@ const POLL_INTERVAL_MS = 100;
  * layer (Phase 1C) can consume it programmatically without parsing text.
  */
 class LocatorResolutionError extends Error {
-  constructor(message, { elementName, intent, attempts, evidence }) {
+  constructor(message, { elementName, intent, attempts, evidence, aiFailure }) {
     super(message);
     this.name = 'LocatorResolutionError';
     this.elementName = elementName;
     this.intent = intent;
     this.attempts = attempts;
     this.evidence = evidence;
+    // Populated only when AI healing was attempted and did not produce a
+    // usable locator - undefined when AI is disabled, exactly as before.
+    this.aiFailure = aiFailure;
   }
 }
 
@@ -138,11 +142,63 @@ async function resolve(page, locatorDef, elementName = locatorDef.intent, option
   const attemptLines = attempts.map(
     (a) => `${a.strategyNumber}. ${a.description} → ${a.matchCount} matches`
   );
+  const baseMessage = `${label}: Unable to resolve element uniquely.\n\nAttempts:\n${attemptLines.join('\n')}`;
 
-  throw new LocatorResolutionError(
-    `${label}: Unable to resolve element uniquely.\n\nAttempts:\n${attemptLines.join('\n')}`,
-    { elementName, intent: locatorDef.intent, attempts, evidence }
-  );
+  if (!aiHealer.isAiHealingEnabled()) {
+    throw new LocatorResolutionError(baseMessage, { elementName, intent: locatorDef.intent, attempts, evidence });
+  }
+
+  console.log(`${label}\nDeterministic strategies exhausted, attempting AI healing`);
+
+  let aiFailureReason;
+  try {
+    const candidate = await aiHealer.suggestLocator(evidence, {
+      client: options.aiClient,
+      model: options.aiModel,
+    });
+    const candidateLocator = buildLocator(page, candidate);
+    const candidateDescription = describeStrategy(candidate);
+    const count = await waitForCount(candidateLocator, strategyTimeoutMs);
+
+    console.log(`${label}\nAI candidate validation: ${count} match${count === 1 ? '' : 'es'}`);
+
+    if (count === 1) {
+      // AI candidates get an extra safety check deterministic strategies do
+      // not: a human wrote every deterministic strategy knowing it targets a
+      // real, interactive element. Claude only sees sanitized DOM metadata,
+      // not rendering state, so it could name an element matched by count()
+      // that is hidden, a template stub, or otherwise not actually usable.
+      let isVisible = false;
+      try {
+        await candidateLocator.waitFor({ state: 'visible', timeout: strategyTimeoutMs });
+        isVisible = true;
+      } catch {
+        isVisible = false;
+      }
+
+      if (isVisible) {
+        console.log(`${label}\nAI HEALED using ${candidateDescription}`);
+        return candidateLocator;
+      }
+      aiFailureReason = `AI candidate matched exactly one element but it was not visible: ${candidateDescription}`;
+    } else if (count === 0) {
+      aiFailureReason = `AI candidate matched 0 elements: ${candidateDescription}`;
+    } else {
+      aiFailureReason = `AI candidate matched ${count} elements (ambiguous), rejected: ${candidateDescription}`;
+    }
+    console.log(`${label}\n${aiFailureReason}`);
+  } catch (err) {
+    aiFailureReason = err.message;
+    console.log(`${label}\nAI healing failed: ${aiFailureReason}`);
+  }
+
+  throw new LocatorResolutionError(baseMessage, {
+    elementName,
+    intent: locatorDef.intent,
+    attempts,
+    evidence,
+    aiFailure: aiFailureReason,
+  });
 }
 
 module.exports = { resolve, DEFAULT_STRATEGY_TIMEOUT_MS, LocatorResolutionError };
