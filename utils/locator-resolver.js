@@ -7,8 +7,31 @@
  * just predefined fallback strategies.
  */
 
+// Referenced via the module object (not destructured) so tests can monkey-patch
+// evidenceCollector.collectHealingEvidence on the shared, cached module instance
+// without needing a dependency-injection framework.
+const evidenceCollector = require('./healing-evidence-collector');
+
 const DEFAULT_STRATEGY_TIMEOUT_MS = 1000;
 const POLL_INTERVAL_MS = 100;
+
+/**
+ * Thrown when every deterministic strategy fails to resolve an element.
+ *
+ * The message stays short and human-readable; the full sanitized evidence
+ * (candidate DOM elements, etc.) lives on `error.evidence` so a future AI
+ * layer (Phase 1C) can consume it programmatically without parsing text.
+ */
+class LocatorResolutionError extends Error {
+  constructor(message, { elementName, intent, attempts, evidence }) {
+    super(message);
+    this.name = 'LocatorResolutionError';
+    this.elementName = elementName;
+    this.intent = intent;
+    this.attempts = attempts;
+    this.evidence = evidence;
+  }
+}
 
 function buildLocator(page, strategy) {
   switch (strategy.type) {
@@ -102,13 +125,24 @@ async function resolve(page, locatorDef, elementName = locatorDef.intent, option
       console.log(`AMBIGUOUS strategy ${strategyNumber}: ${count} matches`);
     }
 
-    attempts.push(`${strategyNumber}. ${description} → ${count} matches`);
+    attempts.push({ strategyNumber, type: strategy.type, description, matchCount: count });
     console.log('');
   }
 
-  throw new Error(
-    `${label}: Unable to resolve element uniquely.\n\nAttempts:\n${attempts.join('\n')}`
+  const evidence = await evidenceCollector.collectHealingEvidence(page, {
+    elementName,
+    intent: locatorDef.intent,
+    attempts,
+  });
+
+  const attemptLines = attempts.map(
+    (a) => `${a.strategyNumber}. ${a.description} → ${a.matchCount} matches`
+  );
+
+  throw new LocatorResolutionError(
+    `${label}: Unable to resolve element uniquely.\n\nAttempts:\n${attemptLines.join('\n')}`,
+    { elementName, intent: locatorDef.intent, attempts, evidence }
   );
 }
 
-module.exports = { resolve, DEFAULT_STRATEGY_TIMEOUT_MS };
+module.exports = { resolve, DEFAULT_STRATEGY_TIMEOUT_MS, LocatorResolutionError };
