@@ -13,6 +13,10 @@ class InventoryPage {
   async addBackpackToCart() {
     await this.addToCartBackpackBtn.click();
   }
+
+  async isInventoryPageDisplayed() {
+    return await this.headerTitle.isVisible();
+  }
 }
 
 module.exports = { InventoryPage };
