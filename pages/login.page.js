@@ -1,12 +1,12 @@
+const { resolve } = require('../utils/locator-resolver');
+const loginLocators = require('../locators/login.locators.json');
+
 class LoginPage {
   /**
    * @param {import('@playwright/test').Page} page
    */
   constructor(page) {
     this.page = page;
-    this.usernameInput = page.locator('#user-name');
-    this.passwordInput = page.locator('#password');
-    this.loginBtn = page.locator('#login-button');
     this.errorMessage = page.locator('[data-test="error"]');
     this.loginpageLogo = page.locator('.login_logo');
   }
@@ -16,9 +16,13 @@ class LoginPage {
   }
 
   async login(username, password) {
-    await this.usernameInput.fill(username);
-    await this.passwordInput.fill(password);
-    await this.loginBtn.click();
+    const usernameInput = await resolve(this.page, loginLocators.usernameInput, 'usernameInput');
+    const passwordInput = await resolve(this.page, loginLocators.passwordInput, 'passwordInput');
+    const loginButton = await resolve(this.page, loginLocators.loginButton, 'loginButton');
+
+    await usernameInput.fill(username);
+    await passwordInput.fill(password);
+    await loginButton.click();
   }
   async isloginpageDisplayed() {
     return await this.loginpageLogo.isVisible();

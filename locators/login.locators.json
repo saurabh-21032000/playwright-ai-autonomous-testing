@@ -1,0 +1,23 @@
+{
+  "usernameInput": {
+    "intent": "Username input field on the login page",
+    "strategies": [
+      { "type": "css", "value": "#user-name" },
+      { "type": "placeholder", "value": "Username" }
+    ]
+  },
+  "passwordInput": {
+    "intent": "Password input field on the login page",
+    "strategies": [
+      { "type": "css", "value": "#password" },
+      { "type": "placeholder", "value": "Password" }
+    ]
+  },
+  "loginButton": {
+    "intent": "Login submit button on the login page",
+    "strategies": [
+      { "type": "css", "value": "#login-button" },
+      { "type": "role", "role": "button", "name": "Login" }
+    ]
+  }
+}
