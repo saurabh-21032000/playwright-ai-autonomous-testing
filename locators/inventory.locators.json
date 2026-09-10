@@ -1,0 +1,9 @@
+{
+  "addBackpackButton": {
+    "intent": "Add Sauce Labs Backpack to cart button on the inventory page",
+    "strategies": [
+      { "type": "css", "value": "#add-to-cart-sauce-labs-backpack" },
+      { "type": "css", "value": "[data-test=\"add-to-cart-sauce-labs-backpack\"]" }
+    ]
+  }
+}

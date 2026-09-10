@@ -1,0 +1,16 @@
+{
+  "checkoutButton": {
+    "intent": "Proceed to checkout button on the cart page",
+    "strategies": [
+      { "type": "css", "value": "#checkout" },
+      { "type": "role", "role": "button", "name": "Checkout" }
+    ]
+  },
+  "removeBackpackButton": {
+    "intent": "Remove Sauce Labs Backpack button on the cart page",
+    "strategies": [
+      { "type": "css", "value": "[data-test=\"remove-sauce-labs-backpack\"]" },
+      { "type": "css", "value": "#remove-sauce-labs-backpack" }
+    ]
+  }
+}

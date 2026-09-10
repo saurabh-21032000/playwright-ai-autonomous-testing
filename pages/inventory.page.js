@@ -1,3 +1,6 @@
+const { resolve } = require('../utils/locator-resolver');
+const inventoryLocators = require('../locators/inventory.locators.json');
+
 class InventoryPage {
   /**
    * @param {import('@playwright/test').Page} page
@@ -7,11 +10,11 @@ class InventoryPage {
     this.headerTitle = page.locator('.title');
     this.inventoryItems = page.locator('.inventory_item');
     this.cartBadge = page.locator('.shopping_cart_badge');
-    this.addToCartBackpackBtn = page.locator('#add-to-cart-sauce-labs-backpack');
   }
 
   async addBackpackToCart() {
-    await this.addToCartBackpackBtn.click();
+    const addBackpackButton = await resolve(this.page, inventoryLocators.addBackpackButton, 'addBackpackButton');
+    await addBackpackButton.click();
   }
 
   async isInventoryPageDisplayed() {

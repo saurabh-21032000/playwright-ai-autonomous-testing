@@ -1,0 +1,37 @@
+{
+  "firstNameInput": {
+    "intent": "First name input field on the checkout information page",
+    "strategies": [
+      { "type": "css", "value": "#first-name" },
+      { "type": "placeholder", "value": "First Name" }
+    ]
+  },
+  "lastNameInput": {
+    "intent": "Last name input field on the checkout information page",
+    "strategies": [
+      { "type": "css", "value": "#last-name" },
+      { "type": "placeholder", "value": "Last Name" }
+    ]
+  },
+  "postalCodeInput": {
+    "intent": "Postal/zip code input field on the checkout information page",
+    "strategies": [
+      { "type": "css", "value": "#postal-code" },
+      { "type": "placeholder", "value": "Zip/Postal Code" }
+    ]
+  },
+  "continueButton": {
+    "intent": "Continue button on the checkout information page",
+    "strategies": [
+      { "type": "css", "value": "#continue" },
+      { "type": "role", "role": "button", "name": "Continue" }
+    ]
+  },
+  "finishButton": {
+    "intent": "Finish button on the checkout overview page",
+    "strategies": [
+      { "type": "css", "value": "#finish" },
+      { "type": "role", "role": "button", "name": "Finish" }
+    ]
+  }
+}

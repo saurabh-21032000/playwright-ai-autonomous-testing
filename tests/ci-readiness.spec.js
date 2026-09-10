@@ -42,8 +42,8 @@ test.describe('CI readiness: authentication and application-state preconditions'
     await expect(page).toHaveURL(/\/inventory\.html/);
 
     await expect(inventoryPage.headerTitle).toBeVisible();
-    await expect(inventoryPage.addToCartBackpackBtn).toHaveCount(1);
-    await expect(inventoryPage.addToCartBackpackBtn).toBeVisible();
+    await expect(page.locator('#add-to-cart-sauce-labs-backpack')).toHaveCount(1);
+    await expect(page.locator('#add-to-cart-sauce-labs-backpack')).toBeVisible();
   });
 
   test('Add to cart updates the cart badge and swaps the backpack button state', async ({ loginPage, inventoryPage, page }) => {
