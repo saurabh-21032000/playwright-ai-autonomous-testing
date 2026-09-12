@@ -12,6 +12,7 @@
 // without needing a dependency-injection framework.
 const evidenceCollector = require('./healing-evidence-collector');
 const aiHealer = require('./ai-locator-healer');
+const { defaultReporter, createHealingEvent } = require('./healing-reporter');
 
 const DEFAULT_STRATEGY_TIMEOUT_MS = 1000;
 const POLL_INTERVAL_MS = 100;
@@ -99,6 +100,7 @@ async function waitForCount(locator, timeoutMs) {
  */
 async function resolve(page, locatorDef, elementName = locatorDef.intent, options = {}) {
   const strategyTimeoutMs = options.strategyTimeoutMs ?? DEFAULT_STRATEGY_TIMEOUT_MS;
+  const reporter = options.reporter || defaultReporter;
   const label = `[LocatorResolver] ${elementName}`;
   const attempts = [];
 
@@ -120,6 +122,17 @@ async function resolve(page, locatorDef, elementName = locatorDef.intent, option
           ? `SUCCESS strategy ${strategyNumber}`
           : `HEALED using strategy ${strategyNumber}`
       );
+      // Cheap, in-memory only - no evidence collection here, so the fast
+      // (and by far most common) path stays fast.
+      reporter.recordEvent(createHealingEvent({
+        elementName,
+        intent: locatorDef.intent,
+        pageUrl: page.url(),
+        resolutionType: strategyNumber === 1 ? 'primary' : 'deterministic-fallback',
+        deterministicAttempts: attempts.slice(),
+        succeededStrategy: { strategyNumber, type: strategy.type, description },
+        ai: { attempted: false, candidate: null, accepted: null, failureReason: null },
+      }));
       return locator;
     }
 
@@ -145,14 +158,23 @@ async function resolve(page, locatorDef, elementName = locatorDef.intent, option
   const baseMessage = `${label}: Unable to resolve element uniquely.\n\nAttempts:\n${attemptLines.join('\n')}`;
 
   if (!aiHealer.isAiHealingEnabled()) {
+    reporter.recordEvent(createHealingEvent({
+      elementName,
+      intent: locatorDef.intent,
+      pageUrl: page.url(),
+      resolutionType: 'failed',
+      deterministicAttempts: attempts.slice(),
+      ai: { attempted: false, candidate: null, accepted: false, failureReason: null },
+    }));
     throw new LocatorResolutionError(baseMessage, { elementName, intent: locatorDef.intent, attempts, evidence });
   }
 
   console.log(`${label}\nDeterministic strategies exhausted, attempting AI healing`);
 
   let aiFailureReason;
+  let candidate = null;
   try {
-    const candidate = await aiHealer.suggestLocator(evidence, {
+    candidate = await aiHealer.suggestLocator(evidence, {
       client: options.aiClient,
       model: options.aiModel,
     });
@@ -178,6 +200,14 @@ async function resolve(page, locatorDef, elementName = locatorDef.intent, option
 
       if (isVisible) {
         console.log(`${label}\nAI HEALED using ${candidateDescription}`);
+        reporter.recordEvent(createHealingEvent({
+          elementName,
+          intent: locatorDef.intent,
+          pageUrl: page.url(),
+          resolutionType: 'ai-healed',
+          deterministicAttempts: attempts.slice(),
+          ai: { attempted: true, candidate, accepted: true, failureReason: null },
+        }));
         return candidateLocator;
       }
       aiFailureReason = `AI candidate matched exactly one element but it was not visible: ${candidateDescription}`;
@@ -191,6 +221,15 @@ async function resolve(page, locatorDef, elementName = locatorDef.intent, option
     aiFailureReason = err.message;
     console.log(`${label}\nAI healing failed: ${aiFailureReason}`);
   }
+
+  reporter.recordEvent(createHealingEvent({
+    elementName,
+    intent: locatorDef.intent,
+    pageUrl: page.url(),
+    resolutionType: 'failed',
+    deterministicAttempts: attempts.slice(),
+    ai: { attempted: true, candidate, accepted: false, failureReason: aiFailureReason },
+  }));
 
   throw new LocatorResolutionError(baseMessage, {
     elementName,
