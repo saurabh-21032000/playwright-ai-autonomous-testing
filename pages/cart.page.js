@@ -1,17 +1,20 @@
+const { resolve } = require('../utils/locator-resolver');
+const cartLocators = require('../locators/cart.locators.json');
+
 class CartPage {
   constructor(page) {
     this.page = page;
     this.cartItem = page.locator('.cart_item');
-    this.checkoutBtn = page.locator('#checkout');
-    this.removeBtn = page.locator('[data-test="remove-sauce-labs-backpack"]');
   }
 
   async proceedToCheckout() {
-    await this.checkoutBtn.click();
+    const checkoutButton = await resolve(this.page, cartLocators.checkoutButton, 'checkoutButton');
+    await checkoutButton.click();
   }
 
   async removeItem() {
-    await this.removeBtn.click();
+    const removeBackpackButton = await resolve(this.page, cartLocators.removeBackpackButton, 'removeBackpackButton');
+    await removeBackpackButton.click();
   }
 }
 
